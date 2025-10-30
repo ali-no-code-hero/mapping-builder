@@ -1,0 +1,26 @@
+{
+  "name": "mapping-builder",
+  "version": "1.0.0",
+  "description": "Vercel service for job matching with geocoding and fuzzy search",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fuse.js": "^6.7.0",
+    "@googlemaps/google-maps-services-js": "^3.3.47",
+    "p-limit": "^5.0.0",
+    "@vercel/node": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "vercel": "^34.0.0"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}
+

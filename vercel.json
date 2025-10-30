@@ -1,0 +1,15 @@
+{
+  "functions": {
+    "api/job-matcher.ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/job-matcher",
+      "destination": "/api/job-matcher.ts"
+    }
+  ]
+}
+
+

@@ -1,0 +1,53 @@
+{
+  "nursing_form_jobs": {
+    "response_jobs": [
+      {
+        "job_eid": "job-123",
+        "title": "Registered Nurse - ICU",
+        "location": "Sacramento CA, Los Angeles CA, San Diego CA",
+        "location_string": "Sacramento CA, Los Angeles CA, San Diego CA",
+        "description": "We are seeking an experienced Registered Nurse for our ICU department.",
+        "searchable_text": "Registered Nurse RN ICU critical care hospital healthcare",
+        "industry": "Healthcare"
+      },
+      {
+        "job_eid": "job-456",
+        "title": "Licensed Practical Nurse",
+        "location": "Oakland CA, Berkeley CA",
+        "location_string": "Oakland CA, Berkeley CA",
+        "description": "LPN position available in long-term care facility.",
+        "searchable_text": "LPN Licensed Practical Nurse nursing care facility",
+        "industry": "Healthcare"
+      },
+      {
+        "job_eid": "job-789",
+        "title": "Nurse Practitioner - Primary Care",
+        "location": "San Francisco CA",
+        "location_string": "San Francisco CA",
+        "description": "NP needed for primary care clinic. Must have CA license.",
+        "searchable_text": "Nurse Practitioner NP primary care clinic CA license",
+        "industry": "Healthcare"
+      },
+      {
+        "job_eid": "job-101",
+        "title": "Medical Sales Representative",
+        "location": "New York NY",
+        "description": "Sales position for medical equipment."
+      }
+    ],
+    "latitude": 37.8044,
+    "longitude": -122.2712,
+    "subscriber_city": "Oakland",
+    "subscriber_state": "CA"
+  },
+  "job_passion": "nursing|RN|healthcare|patient care",
+  "licenses": "RN|LPN|NP",
+  "job_concurrency": 8,
+  "city_batch_size": 6,
+  "early_exit_km": 100,
+  "backfill_when_less_than_3": true,
+  "debug": false,
+  "rapidapi_key": "your-rapidapi-key-here"
+}
+
+
