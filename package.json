@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "vercel dev",
-    "build": "tsc",
+    "build": "echo 'no build step'",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

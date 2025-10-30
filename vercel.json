@@ -1,4 +1,5 @@
 {
+  "buildCommand": "",
   "functions": {
     "api/job-matcher.ts": {
       "maxDuration": 60
