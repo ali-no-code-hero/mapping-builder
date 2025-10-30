@@ -263,7 +263,7 @@ export class JobProcessor {
       // Pick closest 3 honoring fuzzy rules
       const picked: Job[] = [];
       for (const job of prefiltered) {
-        const id = job.job_eid || job.id || job.url;
+        const id: string = job.job_eid || job.id || job.url || '(unknown)';
         let ok = true;
 
         if (requirePassion && requireLicense) {
@@ -305,8 +305,8 @@ export class JobProcessor {
       if (picked.length < 3 && BACKFILL) {
         __debug.notes.push(`Backfilling ${3 - picked.length}`);
         for (const job of prefiltered) {
-          const id = job.job_eid || job.id || job.url;
-          if (!picked.find(j => (j.job_eid || j.id || j.url) === id)) {
+          const id: string = job.job_eid || job.id || job.url || '(unknown)';
+          if (!picked.find(j => ((j.job_eid || j.id || j.url || '(unknown)') === id))) {
             picked.push(job);
             if (picked.length >= 3) break;
           }

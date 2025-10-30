@@ -108,7 +108,7 @@ export class GeocodingService {
       }
 
       this.stats.http_ok++;
-      const data = await response.json();
+      const data: any = await response.json();
 
       // Parse response (same logic as original script)
       let lat: number | null = null;
@@ -129,7 +129,10 @@ export class GeocodingService {
         lng = Number(data.geometry.location.lng);
       }
 
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      if (
+        typeof lat === 'number' && Number.isFinite(lat) &&
+        typeof lng === 'number' && Number.isFinite(lng)
+      ) {
         return { lat, lng };
       }
 
