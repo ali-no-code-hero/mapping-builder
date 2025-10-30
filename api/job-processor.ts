@@ -158,7 +158,6 @@ export class JobProcessor {
             location: cityDisplay,
             location_string: cityDisplay,
             distance_km: distance,
-            original_job: { ...job },
           };
 
           if (
