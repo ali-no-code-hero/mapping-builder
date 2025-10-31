@@ -44,6 +44,7 @@ export interface GeocodeStats {
   parsed_ok: number;
   parsed_fail: number;
   calls_made: number;
+  csv_hits?: number; // Number of times CSV lookup was used (optional for backward compatibility)
 }
 
 export interface DebugInfo {

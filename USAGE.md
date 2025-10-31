@@ -158,3 +158,4 @@ console.log(data.__debug); // Debug information
 5. **API Keys**: You can provide `rapidapi_key` in the request, or set `RAPIDAPI_KEY` environment variable in Vercel. Alternatively, use `GOOGLE_MAPS_API_KEY` for direct Google Maps API access.
 
 
+

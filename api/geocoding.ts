@@ -1,5 +1,6 @@
 import { Client } from '@googlemaps/google-maps-services-js';
 import { GeocodeStats, CityParseResult } from './types';
+import { cityLookup } from './city-lookup';
 
 export class GeocodingService {
   private cache: Map<string, { lat: number; lng: number } | null>;
@@ -8,6 +9,7 @@ export class GeocodingService {
   private apiKey?: string;
   private rapidApiKey?: string;
   private useRapidApi: boolean;
+  private csvHits: number = 0;
 
   constructor(
     apiKey?: string,
@@ -37,7 +39,7 @@ export class GeocodingService {
   }
 
   getStats(): GeocodeStats {
-    return { ...this.stats };
+    return { ...this.stats, csv_hits: this.csvHits };
   }
 
   async geocodeCityState(
@@ -46,7 +48,17 @@ export class GeocodingService {
   ): Promise<{ lat: number; lng: number } | null> {
     const key = `${city}, ${state}`;
 
-    // Check cache
+    // Check CSV lookup first (fastest, no API call)
+    const csvResult = cityLookup.lookupCity(city, state);
+    if (csvResult) {
+      this.csvHits++;
+      this.stats.cache_hits++;
+      // Cache it for consistency
+      this.cache.set(key, csvResult);
+      return csvResult;
+    }
+
+    // Check in-memory cache
     if (this.cache.has(key)) {
       this.stats.cache_hits++;
       return this.cache.get(key) || null;
