@@ -9,10 +9,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "fuse.js": "6.6.2",
     "@googlemaps/google-maps-services-js": "^3.3.47",
-    "p-limit": "^5.0.0",
-    "@vercel/node": "^3.0.0"
+    "@vercel/kv": "^3.0.0",
+    "@vercel/node": "^3.0.0",
+    "fuse.js": "6.6.2",
+    "p-limit": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -23,4 +24,3 @@
     "node": ">=18.x"
   }
 }
-

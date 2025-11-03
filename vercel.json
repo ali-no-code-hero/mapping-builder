@@ -3,12 +3,19 @@
   "functions": {
     "api/job-matcher.ts": {
       "maxDuration": 60
+    },
+    "api/log-apply.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
     {
       "source": "/api/job-matcher",
       "destination": "/api/job-matcher.ts"
+    },
+    {
+      "source": "/api/log-apply",
+      "destination": "/api/log-apply.ts"
     }
   ]
 }

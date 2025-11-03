@@ -49,7 +49,7 @@ export class GeocodingService {
     const key = `${city}, ${state}`;
 
     // Check CSV lookup first (fastest, no API call)
-    const csvResult = cityLookup.lookupCity(city, state);
+    const csvResult = await cityLookup.lookupCity(city, state);
     if (csvResult) {
       this.csvHits++;
       this.stats.cache_hits++;
@@ -83,6 +83,8 @@ export class GeocodingService {
 
       if (result) {
         this.stats.parsed_ok++;
+        // Add to city lookup cache for future requests (saves to Redis KV)
+        await cityLookup.addCity(city, state, result.lat, result.lng);
       } else {
         this.stats.parsed_fail++;
       }

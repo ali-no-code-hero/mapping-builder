@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import kv from '@vercel/kv';
 
 interface CityData {
   lat: number;
@@ -111,9 +112,10 @@ class CityLookupService {
     return fields.map(f => f.replace(/^"|"$/g, '')); // Remove surrounding quotes
   }
 
-  lookupCity(city: string, state: string): { lat: number; lng: number } | null {
+  async lookupCity(city: string, state: string): Promise<{ lat: number; lng: number } | null> {
     if (!this.loaded) {
       this.loadCSV();
+      await this.loadGeocodedCache();
     }
 
     // Normalize input
@@ -121,7 +123,92 @@ class CityLookupService {
     const normalizedState = state.toUpperCase().trim();
     const key = `${normalizedCity},${normalizedState}`;
 
-    return this.lookup.get(key) || null;
+    // Check in-memory cache first
+    const cached = this.lookup.get(key);
+    if (cached) {
+      return cached;
+    }
+
+    // If not in memory, check Redis KV (for newly added cities)
+    try {
+      const redisData = await kv.hget<{ lat: number; lng: number }>('geocoded-cities', key);
+      if (redisData && typeof redisData === 'object' && redisData.lat && redisData.lng) {
+        // Add to in-memory cache for future lookups
+        this.lookup.set(key, redisData);
+        return redisData;
+      }
+    } catch (error) {
+      // Silently fail - continue without Redis lookup
+    }
+
+    return null;
+  }
+
+  /**
+   * Add a newly geocoded city to the lookup cache.
+   * Saves to Redis KV for persistence across deployments.
+   */
+  async addCity(city: string, state: string, lat: number, lng: number): Promise<void> {
+    if (!this.loaded) {
+      this.loadCSV();
+      await this.loadGeocodedCache();
+    }
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return;
+    }
+
+    const normalizedCity = city.toUpperCase().trim();
+    const normalizedState = state.toUpperCase().trim();
+    const key = `${normalizedCity},${normalizedState}`;
+
+    // Add to in-memory lookup
+    this.lookup.set(key, { lat, lng });
+
+    // Save to Redis KV for persistence
+    await this.saveToRedisKV(city, state, lat, lng);
+  }
+
+  private async loadGeocodedCache(): Promise<void> {
+    try {
+      // Load all cities from Redis KV
+      const cache = await kv.hgetall<Record<string, { lat: number; lng: number }>>('geocoded-cities');
+      
+      if (cache && typeof cache === 'object') {
+        let addedCount = 0;
+        for (const [key, data] of Object.entries(cache)) {
+          if (!this.lookup.has(key) && data && typeof data === 'object' && data.lat && data.lng) {
+            this.lookup.set(key, { lat: data.lat, lng: data.lng });
+            addedCount++;
+          }
+        }
+        
+        if (addedCount > 0) {
+          console.log(`Loaded ${addedCount} cities from Redis KV`);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading from Redis KV:', error);
+      // Continue without cache if there's an error
+    }
+  }
+
+  private async saveToRedisKV(city: string, state: string, lat: number, lng: number): Promise<void> {
+    try {
+      const normalizedCity = city.toUpperCase().trim();
+      const normalizedState = state.toUpperCase().trim();
+      const key = `${normalizedCity},${normalizedState}`;
+      
+      // Save to Redis KV using hash
+      await kv.hset('geocoded-cities', {
+        [key]: { lat, lng }
+      });
+      
+      console.log(`Saved ${key} to Redis KV`);
+    } catch (error) {
+      console.error('Error saving to Redis KV:', error);
+      // Silently fail - the city is still cached in memory
+    }
   }
 
   getStats(): { totalCities: number; loaded: boolean } {
