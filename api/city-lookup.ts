@@ -130,15 +130,18 @@ class CityLookupService {
     }
 
     // If not in memory, check Redis KV (for newly added cities)
-    try {
-      const redisData = await kv.hget<{ lat: number; lng: number }>('geocoded-cities', key);
-      if (redisData && typeof redisData === 'object' && redisData.lat && redisData.lng) {
-        // Add to in-memory cache for future lookups
-        this.lookup.set(key, redisData);
-        return redisData;
+    // Only check if Redis KV is configured
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      try {
+        const redisData = await kv.hget<{ lat: number; lng: number }>('geocoded-cities', key);
+        if (redisData && typeof redisData === 'object' && redisData.lat && redisData.lng) {
+          // Add to in-memory cache for future lookups
+          this.lookup.set(key, redisData);
+          return redisData;
+        }
+      } catch (error) {
+        // Silently fail - continue without Redis lookup
       }
-    } catch (error) {
-      // Silently fail - continue without Redis lookup
     }
 
     return null;
@@ -171,6 +174,12 @@ class CityLookupService {
 
   private async loadGeocodedCache(): Promise<void> {
     try {
+      // Check if Redis KV is configured
+      if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+        // Redis KV not configured, skip silently
+        return;
+      }
+
       // Load all cities from Redis KV
       const cache = await kv.hgetall<Record<string, { lat: number; lng: number }>>('geocoded-cities');
       
@@ -188,13 +197,23 @@ class CityLookupService {
         }
       }
     } catch (error) {
-      console.error('Error loading from Redis KV:', error);
+      // Only log if it's not a configuration error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (!errorMessage.includes('Missing required environment variables')) {
+        console.error('Error loading from Redis KV:', error);
+      }
       // Continue without cache if there's an error
     }
   }
 
   private async saveToRedisKV(city: string, state: string, lat: number, lng: number): Promise<void> {
     try {
+      // Check if Redis KV is configured
+      if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+        // Redis KV not configured, skip silently
+        return;
+      }
+
       const normalizedCity = city.toUpperCase().trim();
       const normalizedState = state.toUpperCase().trim();
       const key = `${normalizedCity},${normalizedState}`;
@@ -206,7 +225,11 @@ class CityLookupService {
       
       console.log(`Saved ${key} to Redis KV`);
     } catch (error) {
-      console.error('Error saving to Redis KV:', error);
+      // Only log if it's not a configuration error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (!errorMessage.includes('Missing required environment variables')) {
+        console.error('Error saving to Redis KV:', error);
+      }
       // Silently fail - the city is still cached in memory
     }
   }
