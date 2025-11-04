@@ -10,9 +10,10 @@
   },
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.3.47",
-    "@vercel/kv": "^3.0.0",
+    "@types/ioredis": "^4.28.10",
     "@vercel/node": "^3.0.0",
     "fuse.js": "6.6.2",
+    "ioredis": "^5.8.2",
     "p-limit": "^5.0.0"
   },
   "devDependencies": {

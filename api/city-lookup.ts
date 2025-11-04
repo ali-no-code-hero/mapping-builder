@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import kv from '@vercel/kv';
+import Redis from 'ioredis';
 
 interface CityData {
   lat: number;
@@ -12,8 +12,26 @@ class CityLookupService {
   private static instance: CityLookupService | null = null;
   private lookup: Map<string, CityData> = new Map();
   private loaded: boolean = false;
+  private redis: Redis | null = null;
 
-  private constructor() {}
+  private constructor() {
+    // Initialize Redis client if REDIS_URL is available
+    if (process.env.REDIS_URL) {
+      try {
+        this.redis = new Redis(process.env.REDIS_URL, {
+          maxRetriesPerRequest: 3,
+          retryStrategy: (times) => {
+            if (times > 3) {
+              return null; // Stop retrying
+            }
+            return Math.min(times * 50, 2000);
+          },
+        });
+      } catch (error) {
+        console.error('Error initializing Redis client:', error);
+      }
+    }
+  }
 
   static getInstance(): CityLookupService {
     if (!CityLookupService.instance) {
@@ -129,15 +147,18 @@ class CityLookupService {
       return cached;
     }
 
-    // If not in memory, check Redis KV (for newly added cities)
-    // Only check if Redis KV is configured
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    // If not in memory, check Redis (for newly added cities)
+    // Only check if Redis is configured
+    if (this.redis) {
       try {
-        const redisData = await kv.hget<{ lat: number; lng: number }>('geocoded-cities', key);
-        if (redisData && typeof redisData === 'object' && redisData.lat && redisData.lng) {
-          // Add to in-memory cache for future lookups
-          this.lookup.set(key, redisData);
-          return redisData;
+        const redisDataStr = await this.redis.hget('geocoded-cities', key);
+        if (redisDataStr) {
+          const redisData = JSON.parse(redisDataStr) as { lat: number; lng: number };
+          if (redisData && typeof redisData === 'object' && redisData.lat && redisData.lng) {
+            // Add to in-memory cache for future lookups
+            this.lookup.set(key, redisData);
+            return redisData;
+          }
         }
       } catch (error) {
         // Silently fail - continue without Redis lookup
@@ -149,7 +170,7 @@ class CityLookupService {
 
   /**
    * Add a newly geocoded city to the lookup cache.
-   * Saves to Redis KV for persistence across deployments (non-blocking).
+   * Saves to Redis for persistence across deployments (non-blocking).
    */
   addCity(city: string, state: string, lat: number, lng: number): void {
     if (!this.loaded) {
@@ -169,52 +190,54 @@ class CityLookupService {
     // Add to in-memory lookup immediately
     this.lookup.set(key, { lat, lng });
 
-    // Save to Redis KV asynchronously (non-blocking, fire-and-forget)
+    // Save to Redis asynchronously (non-blocking, fire-and-forget)
     // This prevents Redis writes from slowing down the response
-    this.saveToRedisKV(city, state, lat, lng).catch(() => {
+    this.saveToRedis(city, state, lat, lng).catch(() => {
       // Silently fail - city is already in memory cache
     });
   }
 
   private async loadGeocodedCache(): Promise<void> {
     try {
-      // Check if Redis KV is configured
-      if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-        // Redis KV not configured, skip silently
+      // Check if Redis is configured
+      if (!this.redis) {
+        // Redis not configured, skip silently
         return;
       }
 
-      // Load all cities from Redis KV
-      const cache = await kv.hgetall<Record<string, { lat: number; lng: number }>>('geocoded-cities');
+      // Load all cities from Redis hash
+      const cache = await this.redis.hgetall('geocoded-cities');
       
       if (cache && typeof cache === 'object') {
         let addedCount = 0;
-        for (const [key, data] of Object.entries(cache)) {
-          if (!this.lookup.has(key) && data && typeof data === 'object' && data.lat && data.lng) {
-            this.lookup.set(key, { lat: data.lat, lng: data.lng });
-            addedCount++;
+        for (const [key, dataStr] of Object.entries(cache)) {
+          try {
+            const data = JSON.parse(dataStr) as { lat: number; lng: number };
+            if (!this.lookup.has(key) && data && typeof data === 'object' && data.lat && data.lng) {
+              this.lookup.set(key, { lat: data.lat, lng: data.lng });
+              addedCount++;
+            }
+          } catch (e) {
+            // Skip invalid entries
+            continue;
           }
         }
         
         if (addedCount > 0) {
-          console.log(`Loaded ${addedCount} cities from Redis KV`);
+          console.log(`Loaded ${addedCount} cities from Redis`);
         }
       }
     } catch (error) {
-      // Only log if it's not a configuration error
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (!errorMessage.includes('Missing required environment variables')) {
-        console.error('Error loading from Redis KV:', error);
-      }
+      console.error('Error loading from Redis:', error);
       // Continue without cache if there's an error
     }
   }
 
-  private async saveToRedisKV(city: string, state: string, lat: number, lng: number): Promise<void> {
+  private async saveToRedis(city: string, state: string, lat: number, lng: number): Promise<void> {
     try {
-      // Check if Redis KV is configured
-      if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-        // Redis KV not configured, skip silently
+      // Check if Redis is configured
+      if (!this.redis) {
+        // Redis not configured, skip silently
         return;
       }
 
@@ -222,18 +245,12 @@ class CityLookupService {
       const normalizedState = state.toUpperCase().trim();
       const key = `${normalizedCity},${normalizedState}`;
       
-      // Save to Redis KV using hash
-      await kv.hset('geocoded-cities', {
-        [key]: { lat, lng }
-      });
+      // Save to Redis using hash (store as JSON string)
+      await this.redis.hset('geocoded-cities', key, JSON.stringify({ lat, lng }));
       
-      console.log(`Saved ${key} to Redis KV`);
+      console.log(`Saved ${key} to Redis`);
     } catch (error) {
-      // Only log if it's not a configuration error
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (!errorMessage.includes('Missing required environment variables')) {
-        console.error('Error saving to Redis KV:', error);
-      }
+      console.error('Error saving to Redis:', error);
       // Silently fail - the city is still cached in memory
     }
   }

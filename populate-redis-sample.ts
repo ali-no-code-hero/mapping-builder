@@ -1,9 +1,9 @@
 /**
- * Script to populate Redis KV with sample geocoded cities
+ * Script to populate Redis with sample geocoded cities
  * Run with: npx ts-node populate-redis-sample.ts
  */
 
-import kv from '@vercel/kv';
+import Redis from 'ioredis';
 
 const sampleCities = [
   { city: 'New York', state: 'NY', lat: 40.7128, lng: -74.0060 },
@@ -61,57 +61,66 @@ const sampleCities = [
 ];
 
 async function populateRedis() {
-  console.log('🗄️  Populating Redis KV with sample cities...\n');
+  console.log('🗄️  Populating Redis with sample cities...\n');
+
+  let redis: Redis | null = null;
 
   try {
-    // Check if Redis KV is configured
-    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-      console.error('❌ Redis KV not configured. Missing KV_REST_API_URL or KV_REST_API_TOKEN');
-      console.log('\nPlease connect Redis KV in Vercel Dashboard first.');
+    // Check if Redis is configured
+    if (!process.env.REDIS_URL) {
+      console.error('❌ Redis not configured. Missing REDIS_URL');
+      console.log('\nPlease set REDIS_URL environment variable.');
       process.exit(1);
     }
 
-    // Prepare data for batch insert
-    const citiesData: Record<string, { lat: number; lng: number }> = {};
+    // Initialize Redis client
+    redis = new Redis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: 3,
+    });
+
+    console.log(`📝 Adding ${sampleCities.length} sample cities to Redis...`);
     
+    // Batch insert all cities
+    const pipeline = redis.pipeline();
     for (const city of sampleCities) {
       const key = `${city.city.toUpperCase()},${city.state.toUpperCase()}`;
-      citiesData[key] = { lat: city.lat, lng: city.lng };
+      pipeline.hset('geocoded-cities', key, JSON.stringify({ lat: city.lat, lng: city.lng }));
     }
-
-    console.log(`📝 Adding ${sampleCities.length} sample cities to Redis KV...`);
+    await pipeline.exec();
     
-    // Batch insert all cities at once
-    await kv.hset('geocoded-cities', citiesData);
-    
-    console.log(`✅ Successfully added ${sampleCities.length} cities to Redis KV!\n`);
+    console.log(`✅ Successfully added ${sampleCities.length} cities to Redis!\n`);
     
     // Verify by reading back
     console.log('🔍 Verifying data...');
-    const allCities = await kv.hgetall<Record<string, { lat: number; lng: number }>>('geocoded-cities');
+    const allCities = await redis.hgetall('geocoded-cities');
     const cityCount = allCities ? Object.keys(allCities).length : 0;
-    console.log(`✅ Found ${cityCount} total cities in Redis KV\n`);
+    console.log(`✅ Found ${cityCount} total cities in Redis\n`);
     
     // Show a few examples
     console.log('📋 Sample cities added:');
     for (let i = 0; i < Math.min(5, sampleCities.length); i++) {
       const city = sampleCities[i];
       const key = `${city.city.toUpperCase()},${city.state.toUpperCase()}`;
-      const data = await kv.hget<{ lat: number; lng: number }>('geocoded-cities', key);
-      if (data) {
+      const dataStr = await redis.hget('geocoded-cities', key);
+      if (dataStr) {
+        const data = JSON.parse(dataStr) as { lat: number; lng: number };
         console.log(`   ${city.city}, ${city.state}: ${data.lat}, ${data.lng}`);
       }
     }
     
-    console.log('\n✅ Redis KV population complete!');
-    console.log('\n💡 These cities will now be loaded from Redis KV on API startup.');
+    console.log('\n✅ Redis population complete!');
+    console.log('\n💡 These cities will now be loaded from Redis on API startup.');
     
   } catch (error) {
-    console.error('❌ Error populating Redis KV:', error);
+    console.error('❌ Error populating Redis:', error);
     if (error instanceof Error) {
       console.error('Error message:', error.message);
     }
     process.exit(1);
+  } finally {
+    if (redis) {
+      await redis.quit();
+    }
   }
 }
 
