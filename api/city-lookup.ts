@@ -149,12 +149,13 @@ class CityLookupService {
 
   /**
    * Add a newly geocoded city to the lookup cache.
-   * Saves to Redis KV for persistence across deployments.
+   * Saves to Redis KV for persistence across deployments (non-blocking).
    */
-  async addCity(city: string, state: string, lat: number, lng: number): Promise<void> {
+  addCity(city: string, state: string, lat: number, lng: number): void {
     if (!this.loaded) {
       this.loadCSV();
-      await this.loadGeocodedCache();
+      // Don't await - load cache asynchronously
+      this.loadGeocodedCache().catch(() => {});
     }
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
@@ -165,11 +166,14 @@ class CityLookupService {
     const normalizedState = state.toUpperCase().trim();
     const key = `${normalizedCity},${normalizedState}`;
 
-    // Add to in-memory lookup
+    // Add to in-memory lookup immediately
     this.lookup.set(key, { lat, lng });
 
-    // Save to Redis KV for persistence
-    await this.saveToRedisKV(city, state, lat, lng);
+    // Save to Redis KV asynchronously (non-blocking, fire-and-forget)
+    // This prevents Redis writes from slowing down the response
+    this.saveToRedisKV(city, state, lat, lng).catch(() => {
+      // Silently fail - city is already in memory cache
+    });
   }
 
   private async loadGeocodedCache(): Promise<void> {

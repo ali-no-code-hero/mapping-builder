@@ -2,7 +2,7 @@
   "buildCommand": "",
   "functions": {
     "api/job-matcher.ts": {
-      "maxDuration": 60
+      "maxDuration": 120
     },
     "api/log-apply.ts": {
       "maxDuration": 30

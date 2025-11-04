@@ -83,8 +83,8 @@ export class GeocodingService {
 
       if (result) {
         this.stats.parsed_ok++;
-        // Add to city lookup cache for future requests (saves to Redis KV)
-        await cityLookup.addCity(city, state, result.lat, result.lng);
+        // Add to city lookup cache for future requests (saves to Redis KV non-blocking)
+        cityLookup.addCity(city, state, result.lat, result.lng);
       } else {
         this.stats.parsed_fail++;
       }
