@@ -73,12 +73,12 @@ class CityLookupService {
         const line = lines[i];
         // Parse CSV (handling quoted fields)
         const fields = this.parseCSVLine(line);
-        if (fields.length < 8) continue;
+        if (fields.length < 11) continue;
 
         const cityAscii = fields[1]?.trim();
-        const stateId = fields[2]?.trim();
-        const latStr = fields[6]?.trim();
-        const lngStr = fields[7]?.trim();
+        const stateId = fields[3]?.trim(); // Changed from 2 to 3 (new CSV has city_alt column)
+        const latStr = fields[9]?.trim();  // Changed from 6 to 9 (new CSV has more columns)
+        const lngStr = fields[10]?.trim(); // Changed from 7 to 10 (new CSV has more columns)
 
         if (!cityAscii || !stateId || !latStr || !lngStr) continue;
 
